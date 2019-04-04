@@ -1,0 +1,59 @@
+# Homework 3 Report - Team 3
+
+1. Generate images with GANPaint
+GAN Dissect 是一個可以透過可視化來探討 GAN 內部神經元，並進一步了解 GAN 的學習狀況，尋找哪些神經元導致了輸出的結果不好，並將導致結果差的神經元設為0，進而生成更好的結果。而作者也提供了一個互動式的框架，可以透過調整神經元來達到新增或移除特定物件的功能，如下圖所示，我們可以選擇新增或是移除樹、草地、門等等的物件，生成出我們想要的結果。
+![](https://i.imgur.com/jEh1mmv.png)
+透過 dissection，我們可以知道哪些 unit 和某個類別是相關的，但我們不知道這個 unit 對於最後輸出的影響有多大，所以增加了 alpha 這個參數給 feature map，最後可以透過 alpha 這個值來知道哪些 unit 對最終結果的影響最大。
+以下是我們利用 GANPaint 生成出來的圖片，分別為原始圖片、移除草地後的圖片以及加上雲的圖片。
+
+| Origin image | Remove grass | Draw cloud |
+| -------- | -------- | -------- |
+|![](https://i.imgur.com/5Cs7myk.png)|![](https://i.imgur.com/axylXCc.png)|![](https://i.imgur.com/LhdyWw0.png)|
+|![](https://i.imgur.com/Ucl2Tf8.png)|![](https://i.imgur.com/HYpjPyX.png)|![](https://i.imgur.com/24kXXqb.png)|
+|![](https://i.imgur.com/7V2CBMR.png)|![](https://i.imgur.com/PpIPeDM.png)|![](https://i.imgur.com/jnweR5l.png)
+
+2. Dissect any GAN model and analyze what you find
+* Ablate sofa
+如下圖所示，我們選擇沙發作為 unit，前兩張圖是偵測到的 iou 最大的，選出來的範圍還算不錯，但第三張的結果並沒有圈出沙發，甚至還框到了地板或是桌子等等其他不相干的物件，這會導致做 ablation 的時候，會影響到選定物件以外的東西。
+
+| Picture 1 | Picture 2 | Picture 3 |
+| -------- | -------- | -------- |
+|![](https://i.imgur.com/V14IGDV.png)|![](https://i.imgur.com/9SS8trX.png)|![](https://i.imgur.com/HAaxbaS.png)|
+
+下圖是 ablate 的例子，結果對於沙發的消除並沒有很明顯，最後還是有留一些沙發的痕跡，不過看的出來有偵測到正確的沙發位子，有把沙發上的抱枕消除，可惜貼近桌子的部分沒有成功消掉。
+![](https://i.imgur.com/BKZ2O9I.png)
+這張可以發現沙發幾乎沒有被消除，反而消到了中間的桌子和背景的黑色物體，可見他的 segmentation 還有待加強。
+![](https://i.imgur.com/Jb4LAov.png)
+
+
+
+3. Compare with other method
+    PyTorch-SIGGRAPH2017-Inpainting(https://github.com/akmtn/pytorch-siggraph2017-inpainting)
+    需使用pytorch0.5之前的版本(pytorch0.4x)
+    結果:
+    原圖 | MASK(黑色的部分保留原圖,對白色的部分重填) | INPAINT
+   ![](https://i.imgur.com/GZPdMou.jpg)
+    前面兩張是把人去掉，這部分蠻成功的。第三張圖想把泳裝上衣去掉卻失敗，只有在右胸的下面是有去掉的感覺(接近皮膚色)，而在其他部分的邊界都變成與原圖保留部分有明顯的邊界。
+)
+
+
+      
+  架構：￼￼
+￼![](https://i.imgur.com/tYgUzwU.png)
+架構由三個網絡組成：completion network(用於完成圖像), global context discriminator和local context discriminator。global discriminator以整張圖片作為輸入，識別場景的全局一致性；local discriminator只看的到以填充區域為中心的原圖1/2*1/2的大小區域，達成局部一致性。
+由下圖來說明，若不使用local discriminator( b )( c )，填充的部分將被填滿大片模糊的景象；若不使用global discriminator(d)，雖不會產生模糊的影像，但會產生不該存在的紋理(草地上有神秘的花紋)。只有使用local和global discriminator的(e)會產生最自然的圖。
+![](https://i.imgur.com/s8AEdLX.png)
+
+
+處理時間將取決於輸入的圖片解析度而非待填入區域的大小。
+
+## Conclusion
+
+  GAN內部的情況是靠quality, stability, and variation這三個不同的變異量，讓訓練的圖片愈來愈好。而GAN dissection則是結合了一種dissection和intervention的技術，這兩種結合的技術是dissect GAN的中間層以識別各個元件和object class的一致性，再來我們也可以透過開關unit，來看unit是否從之前存在的圖像中消失或是出現在先前不存在的圖像中，所以我們利用這個方法做出了這次移除草地後的圖片以及加上雲的圖片。
+
+
+  Ablate sofa的例子則是通過dissection unit，我們採用沙發為unit，使用intersection-over-union（IoU）來測量選取的範圍，取其 intersection of the thresholded image和定義屬於segment class的交集，並將它們除以它們的union，結果告訴我們圖片的哪一部分與segment class相關。
+  
+
+  與PyTorch-SIGGRAPH2017-Inpainting的方法相比，GAN Dissect再刪除unit時，相應的unit大部分會從生成的場景中消失，但如果unit是場景的組成的一部分則只能減小unit的尺寸和密度，但不能完全從場景中消除。
+
